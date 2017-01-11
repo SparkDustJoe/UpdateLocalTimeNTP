@@ -2,7 +2,7 @@
 Update a Windows machine to a list of NTP servers, removing outliers.  Console App, can be Automated.
 ```
 ===================================================================================================
-UpdateLocalTimeNTP.exe Usage: *NOTE: PROGRAM MUST BE RUN AS ADMIN!*
+UpdateLocalTimeNTP.exe Usage: *NOTE: PROGRAM MUST BE RUN AS ADMIN TO APPLY CHANGES!*
   -nochange  Test operation but make no clock changes.
   -force (cannot be used with -nochange) Force an update even if drastically off or tiny.
   -log  Log operations to local folder for unattended troubleshooting.
@@ -14,5 +14,8 @@ UpdateLocalTimeNTP.exe Usage: *NOTE: PROGRAM MUST BE RUN AS ADMIN!*
     Edit active.txt or servers.txt if you want to use your own servers. (active.txt is rebuilt
     from servers.txt if present or internal list).
   -count:X (no spaces) Number of servers to use where X is between 3 and 30 (inclusive, default 15)
-===================================================================================================
+  -mincor:X (no spaces) Number of minimum MILLISECONDS to allow for adjustment (default, 200 ms)
+  -maxcor:X (no spaces) Number of maximum MINUTES to allow for adjustment (default, 90 minutes)
+    Corrections above the max or below the min will be ignored without -force switch.
+=====================================================================================================
 ```

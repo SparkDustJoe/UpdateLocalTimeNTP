@@ -57,6 +57,7 @@
     <Content Include="masterserverlist.txt" />
   </ItemGroup>
   <ItemGroup>
+    <None Include=".gitignore" />
     <None Include="app.manifest">
       <SubType>Designer</SubType>
     </None>

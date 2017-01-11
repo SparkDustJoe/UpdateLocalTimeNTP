@@ -1,5 +1,0 @@
-C:\DOTNET Programs\GitHub\UpdateLocalTimeNTP\bin\Debug\UpdateLocalDateTimeViaNTP.exe
-C:\DOTNET Programs\GitHub\UpdateLocalTimeNTP\bin\Debug\UpdateLocalDateTimeViaNTP.pdb
-C:\DOTNET Programs\GitHub\UpdateLocalTimeNTP\obj\x86\Debug\UpdateLocalTimeNTP.csprojResolveAssemblyReference.cache
-C:\DOTNET Programs\GitHub\UpdateLocalTimeNTP\obj\x86\Debug\UpdateLocalDateTimeViaNTP.exe
-C:\DOTNET Programs\GitHub\UpdateLocalTimeNTP\obj\x86\Debug\UpdateLocalDateTimeViaNTP.pdb

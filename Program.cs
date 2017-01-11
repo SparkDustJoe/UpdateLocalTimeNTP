@@ -26,11 +26,19 @@ namespace UpdateLocalTimeNTP
         const string LogSwitch = "-log";
         const string FullServerListSwitch = "-resetlist";
         const string CountParameter = "-count:";
+        const string MaxCorParameter = "-maxcor:";
+        const string MinCorParameter = "-mincor:";
         private static readonly string[] HelpSwitches = { "-help", "-?", "/help", "/?", "?", "help" };
         static List<double> corrections = new List<double>();
         static int successes = 0;
         static List<string> failures = new List<string>();
-        
+        const int MinCorrection = 200; // bottom out at 200 milliseconds
+        const int MaxCorrection = 90; // top out at 90 minutes
+        static int MinUserCorrection = MinCorrection;
+        static int MaxUserCorrection = MaxCorrection;
+        static int DefaultServerCount = 15;
+        static int serverCount = DefaultServerCount;
+
         static int Main(string[] args)
         {
             string logFile = DateTime.Now.ToString("yyyy-MM-dd HH") + ".log";
@@ -41,7 +49,7 @@ namespace UpdateLocalTimeNTP
                 {
                     Console.ForegroundColor = ConsoleColor.White;
                     Console.WriteLine("\r\n===================================================================================================");
-                    Console.WriteLine("UpdateLocalTimeNTP.exe Usage: *NOTE: PROGRAM MUST BE RUN AS ADMIN!*");
+                    Console.WriteLine("UpdateLocalTimeNTP.exe Usage: *NOTE: PROGRAM MUST BE RUN AS ADMIN TO APPLY CHANGES!*");
                     Console.WriteLine("  -nochange  Test operation but make no clock changes.");
                     Console.WriteLine("  -force (cannot be used with -nochange) Force an update even if drastically off or tiny.");
                     Console.WriteLine("  -log  Log operations to local folder for unattended troubleshooting.");
@@ -52,8 +60,12 @@ namespace UpdateLocalTimeNTP
                     Console.WriteLine("    If servers.txt is missing, program will recreate it from internal list.");
                     Console.WriteLine("    Edit active.txt or servers.txt if you want to use your own servers. (active.txt is rebuilt");
                     Console.WriteLine("    from servers.txt if present or internal list).");
-                    Console.WriteLine("  -count:X (no spaces) Number of servers to use where X is between 3 and 30 (inclusive, default 15)");
-                    Console.WriteLine("===================================================================================================\r\n");
+                    Console.WriteLine("  -count:X (no spaces) Number of servers to use where X is between " +
+                        ServerListHandler.MIN_SERVER_REQUEST + " and " + ServerListHandler.MAX_SERVER_REQUEST + " (inclusive, default " + DefaultServerCount + ")");
+                    Console.WriteLine("  -mincor:X (no spaces) Number of minimum MILLISECONDS to allow for adjustment (default, " + MinCorrection + " ms)");
+                    Console.WriteLine("  -maxcor:X (no spaces) Number of maximum MINUTES to allow for adjustment (default, " + MaxCorrection + " minutes)");
+                    Console.WriteLine("    Corrections above the max or below the min will be ignored without -force switch.");
+                    Console.WriteLine("=====================================================================================================\r\n");
                     return 0;
                 }
             }
@@ -79,7 +91,7 @@ namespace UpdateLocalTimeNTP
             Console.ForegroundColor = ImportantColor;
             Common.WriteAndLogThisLine("Update Local Date/Time via NTP", alsoLog, false, logFile);
             Common.WriteAndLogThisLine("======================================================================", alsoLog, false, logFile);
-            int serverCount = 15;
+            
             foreach(string a in args)
             {
                 if (a.StartsWith(CountParameter) && a.Length > CountParameter.Length)
@@ -92,19 +104,64 @@ namespace UpdateLocalTimeNTP
                         {
                             Console.ForegroundColor = WarningColor;
                             Common.WriteAndLogThisLine("*Warning (non-fatal): '-count:' flag value not an integer", true, false, logFile);
-                            Common.WriteAndLogThisLine("   Defaulting to 15 servers.", true, false, logFile);
-                            serverCount = 15;
+                            Common.WriteAndLogThisLine("   Defaulting to " + DefaultServerCount + " servers.", true, false, logFile);
+                            serverCount = DefaultServerCount;
                         }
                         else if (serverCount > ServerListHandler.MAX_SERVER_REQUEST || serverCount < ServerListHandler.MIN_SERVER_REQUEST)
                         {
                             Console.ForegroundColor = WarningColor;
                             Common.WriteAndLogThisLine("*Warning (non-fatal): '-count:' flag value out of range " +
                                 "(" + ServerListHandler.MIN_SERVER_REQUEST + " to " + ServerListHandler.MAX_SERVER_REQUEST + " inclusive)! ", true, false, logFile);
-                            Common.WriteAndLogThisLine("   Defaulting to 15 servers.", true, false, logFile);
-                            serverCount = 15;
+                            Common.WriteAndLogThisLine("   Defaulting to " + DefaultServerCount + " servers.", true, false, logFile);
+                            serverCount = DefaultServerCount;
                         }
                     }
-                    break;
+                }
+                if (a.StartsWith(MaxCorParameter) && a.Length > MaxCorParameter.Length)
+                {
+                    int index = a.IndexOf(':');
+                    if (index > 0)
+                    {
+                        string c = a.Substring(a.IndexOf(':') + 1);
+                        if (!int.TryParse(c, out MaxUserCorrection))
+                        {
+                            Console.ForegroundColor = WarningColor;
+                            Common.WriteAndLogThisLine("*Warning (non-fatal): '-maxcor:' flag value not an integer", true, false, logFile);
+                            Common.WriteAndLogThisLine("   Defaulting to " + MaxCorrection + " minutes.", true, false, logFile);
+                            MaxUserCorrection = MaxCorrection;
+                        }
+                        else if (MaxUserCorrection > 24*60 || MaxUserCorrection < 1)
+                        {
+                            Console.ForegroundColor = WarningColor;
+                            Common.WriteAndLogThisLine("*Warning (non-fatal): '-maxcor:' flag value out of range " +
+                                "(1 to " + (24 * 60).ToString() + " (=1 day) minutes inclusive)! ", true, false, logFile);
+                            Common.WriteAndLogThisLine("   Defaulting to " + MaxCorrection + " minutes.", true, false, logFile);
+                            MaxUserCorrection = MaxCorrection;
+                        }
+                    }
+                }
+                if (a.StartsWith(MinCorParameter) && a.Length > MinCorParameter.Length)
+                {
+                    int index = a.IndexOf(':');
+                    if (index > 0)
+                    {
+                        string c = a.Substring(a.IndexOf(':') + 1);
+                        if (!int.TryParse(c, out MinUserCorrection))
+                        {
+                            Console.ForegroundColor = WarningColor;
+                            Common.WriteAndLogThisLine("*Warning (non-fatal): '-mincor:' flag value not an integer", true, false, logFile);
+                            Common.WriteAndLogThisLine("   Defaulting to " + MinCorrection + " milliseconds.", true, false, logFile);
+                            MinUserCorrection = MinCorrection;
+                        }
+                        else if (MinUserCorrection < 100 || MinUserCorrection > 600000)
+                        {
+                            Console.ForegroundColor = WarningColor;
+                            Common.WriteAndLogThisLine("*Warning (non-fatal): '-mincor:' flag value out of range " +
+                                "(100 to 600000 (=10 minutes) milliseconds inclusive)! ", true, false, logFile);
+                            Common.WriteAndLogThisLine("   Defaulting to " + MinCorrection + " milliseconds.", true, false, logFile);
+                            MinUserCorrection = MinCorrection;
+                        }
+                    }
                 }
             }
             Console.BackgroundColor = ConsoleColor.Black;
@@ -218,15 +275,15 @@ namespace UpdateLocalTimeNTP
                     Console.ForegroundColor = NormalColor;
                     Console.BackgroundColor = ConsoleColor.Black;
                     Console.WriteLine(" Average difference : " + average.ToString() + " seconds.");
-                    if (Math.Abs(average) < 0.02D && !args.Contains(ForceSwitch))
+                    if (Math.Abs(average) < ((float)MinUserCorrection / 1000) && !args.Contains(ForceSwitch))
                     {
                         Console.ForegroundColor = ImportantColor;
-                        Common.WriteAndLogThisLine(" Difference too small (20 milliseconds).  Time drift considered OK.", alsoLog, false, logFile);
+                        Common.WriteAndLogThisLine(" Difference too small.  Time drift considered OK.", alsoLog, false, logFile);
                     }
-                    else if (Math.Abs(average) > short.MaxValue && !args.Contains(ForceSwitch)) // short.MaxValue is roughly 9.1 hours worth of seconds
+                    else if (Math.Abs(average) > (MaxCorrection * 60) && !args.Contains(ForceSwitch))
                     {
                         Console.ForegroundColor = WarningColor;
-                        Common.WriteAndLogThisLine(" *Warning: Difference TOO BIG (>~9 hours)! Time drift needs manual intervention, or use", alsoLog, true, logFile);
+                        Common.WriteAndLogThisLine(" *Warning: Difference TOO BIG! Time drift needs manual intervention, or use", alsoLog, true, logFile);
                         Common.WriteAndLogThisLine("  '-force' command-line switch.", alsoLog, true, logFile);
                         returnVal = -1;
                     }
